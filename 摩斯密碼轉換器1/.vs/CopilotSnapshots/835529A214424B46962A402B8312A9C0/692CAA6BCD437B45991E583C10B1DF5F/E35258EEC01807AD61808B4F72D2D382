@@ -1,0 +1,228 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Windows.Forms;
+
+namespace 摩斯密碼轉換器1
+{
+    public partial class Form1 : Form
+    {
+        /// <summary>
+        /// MorseCode 結構：儲存字元與其對應的摩斯碼字串。
+        /// </summary>
+        public struct MorseCode
+        {
+            /// <summary>字元（例如 'A'）</summary>
+            public char Letter;
+            /// <summary>對應的摩斯碼（例如 ".-"）</summary>
+            public string Code;
+        }
+
+        /// <summary>
+        /// 儲存整個對照表的集合。必須使用 List&lt;MorseCode&gt;（專案規定不可使用 Dictionary）。
+        /// </summary>
+        private List<MorseCode> _morseList = new List<MorseCode>();
+
+
+        /// <summary>
+        /// 建構子：只初始化表單元件，實際的對照表在 Form Load 時讀取。
+        /// </summary>
+        public Form1()
+        {
+            InitializeComponent();
+        }
+
+        /// <summary>
+        /// 表單載入事件：在表單顯示前讀取 morse_code_table.md 建立對照表。
+        /// </summary>
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            LoadMorseMap();
+        }
+
+        /// <summary>
+        /// 從應用程式資料夾讀取 morse_code_table.md，使用 StreamReader(File.OpenText) 與 while(!EndOfStream) 逐行讀取。
+        /// 若檔案不存在或讀取失敗會顯示錯誤訊息。
+        /// </summary>
+        private void LoadMorseMap()
+        {
+            var filePath = Path.Combine(Application.StartupPath, "morse_code_table.md");
+            if (!File.Exists(filePath))
+            {
+                MessageBox.Show("找不到 morse_code_table.md，請將檔案放在應用程式資料夾。", "檔案遺失", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                using (StreamReader inputFile = File.OpenText(filePath))
+                {
+                    while (!inputFile.EndOfStream)
+                    {
+                        string line = inputFile.ReadLine();
+                        if (line == null)
+                            continue;
+                        ParseMorseLine(line);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"讀取 morse_code_table.md 發生錯誤：{ex.Message}", "讀取錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>
+        /// 解析單行資料。支援 Markdown table 列（例如 "| A | .- |"）或簡單格式（例如 "A .-" 或 "A: .-"）。
+        /// 成功解析後會呼叫 AddMappingIfValid 將項目加入到 _morseList。
+        /// </summary>
+        private void ParseMorseLine(string raw)
+        {
+            var line = raw.Trim();
+            if (string.IsNullOrEmpty(line))
+                return;
+            if (line.StartsWith("#"))
+                return;
+
+            // Markdown table row: | A | .- |
+            if (line.Contains("|") && line.Count(c => c == '|') >= 2)
+            {
+                var parts = line.Split('|').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToArray();
+                if (parts.Length >= 2)
+                {
+                    AddMappingIfValid(parts[0], parts[1]);
+                }
+                return;
+            }
+
+            // 常見格式：A .- 或 A: .- 或 A - .-
+            var m = Regex.Match(line, "^\\s*([^:\\s\\t]+)\\s*[:\\-\\s]*([.\\-\\/]+)");
+            if (m.Success)
+            {
+                var key = m.Groups[1].Value.Trim();
+                var code = m.Groups[2].Value.Trim();
+                AddMappingIfValid(key, code);
+                return;
+            }
+
+            // 其他以空白分隔的簡單格式
+            var tokens = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length >= 2 && Regex.IsMatch(tokens[1], "^[.\\-/]+$"))
+            {
+                AddMappingIfValid(tokens[0], tokens[1]);
+            }
+        }
+
+        /// <summary>
+        /// 驗證 key 與 code，若為單一字元則加入到 _morseList（且避免重複）。
+        /// </summary>
+        private void AddMappingIfValid(string key, string code)
+        {
+            if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(code))
+                return;
+            var ch = key.Trim();
+            if (ch.Length == 1)
+            {
+                var c = char.ToUpperInvariant(ch[0]);
+                // 檢查是否已存在相同字元，避免重複加入
+                foreach (var item in _morseList)
+                {
+                    if (item.Letter == c)
+                        return;
+                }
+                _morseList.Add(new MorseCode { Letter = c, Code = code.Trim() });
+            }
+        }
+
+        /// <summary>
+        /// 在 List 中查找字元對應的摩斯碼；找不到時回傳 null。
+        /// </summary>
+        private string FindCode(char ch)
+        {
+            for (int i = 0; i < _morseList.Count; i++)
+            {
+                if (_morseList[i].Letter == ch)
+                    return _morseList[i].Code;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 轉換按鈕事件：將輸入轉大寫後逐字查詢對照表，組成完整摩斯字串並顯示逐字對照。
+        /// 空白顯示為 '/'；未定義字元會被忽略。
+        /// </summary>
+        private void button1_Click(object sender, EventArgs e)
+        {
+            listBox1.BeginUpdate();
+            listBox1.Items.Clear();
+            textBox2.Clear();
+
+            var input = textBox1.Text ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                MessageBox.Show("請輸入文字後按轉換。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            input = input.ToUpper();
+
+            var full = new List<string>();
+            foreach (var ch in input)
+            {
+                if (char.IsWhiteSpace(ch))
+                {
+                    full.Add("/");
+                    listBox1.Items.Add("空白   /");
+                    continue;
+                }
+                var code = FindCode(ch);
+                if (code != null)
+                {
+                    full.Add(code);
+                    listBox1.Items.Add($"{ch}   {code}");
+                }
+                else
+                {
+                    // 未定義字元：忽略（不顯示、不轉換）
+                    continue;
+                }
+            }
+
+            textBox2.Text = string.Join(' ', full);
+            listBox1.EndUpdate();
+        }
+
+        /// <summary>
+        /// 清除按鈕事件：清空輸入與輸出控制項。
+        /// </summary>
+        private void button2_Click(object sender, EventArgs e)
+        {
+            textBox1.Clear();
+            textBox2.Clear();
+            listBox1.Items.Clear();
+        }
+
+        // 以下為設計器自動產生的事件存根（保留以避免設計器錯誤）
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void textBox1_TextChanged_1(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label3_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void textBox2_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+    }
+}

@@ -1,0 +1,24 @@
+﻿# Morse Code Table
+
+This file lists Morse code mappings. Each row is formatted as a Markdown table row: `| LETTER | CODE |`.
+Alternative formats (supported by the parser): `A .-` or `A: .-`.
+
+| Character | Code | Character | Code | Character | Code | Character | Code |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| space | *space* | 6 | `-....` | G | `--.` | Q | `--.-` |
+| comma | `--..--` | 7 | `--...` | H | `....` | R | `.-.` |
+| period | `.-.-.-` | 8 | `---..` | I | `..` | S | `...` |
+| ? | `..--..` | 9 | `----.` | J | `.---` | T | `-` |
+| 0 | `-----` | A | `.-` | K | `-.-` | U | `..-` |
+| 1 | `.----` | B | `-...` | L | `.-..` | V | `...-` |
+| 2 | `..---` | C | `-.-.` | M | `--` | W | `.--` |
+| 3 | `...--` | D | `-..` | N | `-.` | X | `-..-` |
+| 4 | `....-` | E | `.` | O | `---` | Y | `-.--` |
+| 5 | `.....` | F | `..-.` | P | `.--.` | Z | `--..` |
+
+# Alternative simple lines (parser also accepts these formats):
+A .-
+B -...
+C -.-.
+
+# End of file

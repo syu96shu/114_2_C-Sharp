@@ -1,0 +1,191 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Windows.Forms;
+
+namespace 摩斯密碼轉換器1
+{
+    public partial class Form1 : Form
+    {
+        public struct MorseCode
+        {
+            public char Letter;
+            public string Code;
+        }
+
+        private List<MorseCode> _morseList = new List<MorseCode>();
+
+        public Form1()
+        {
+            InitializeComponent();
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            LoadMorseMap();
+        }
+
+        private void LoadMorseMap()
+        {
+            var filePath = Path.Combine(Application.StartupPath, "morse_code_table.md");
+            if (!File.Exists(filePath))
+            {
+                MessageBox.Show("找不到 morse_code_table.md，請將檔案放在應用程式資料夾。", "檔案遺失", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                using (StreamReader inputFile = File.OpenText(filePath))
+                {
+                    while (!inputFile.EndOfStream)
+                    {
+                        string line = inputFile.ReadLine();
+                        if (line == null)
+                            continue;
+                        ParseMorseLine(line);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"讀取 morse_code_table.md 發生錯誤：{ex.Message}", "讀取錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void ParseMorseLine(string raw)
+        {
+            var line = raw.Trim();
+            if (string.IsNullOrEmpty(line))
+                return;
+            if (line.StartsWith("#"))
+                return;
+
+            // If markdown table row like: | A | .- |
+            if (line.Contains("|") && line.Count(c => c == '|') >= 2)
+            {
+                var parts = line.Split('|').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToArray();
+                if (parts.Length >= 2)
+                {
+                    AddMappingIfValid(parts[0], parts[1]);
+                }
+                return;
+            }
+
+            // Try common formats like: A .-   or A: .-   or A - .-
+            var m = Regex.Match(line, "^\\s*([^:\\s\\t]+)\\s*[:\\-\\s]*([.\\-\\/]+)");
+            if (m.Success)
+            {
+                var key = m.Groups[1].Value.Trim();
+                var code = m.Groups[2].Value.Trim();
+                AddMappingIfValid(key, code);
+                return;
+            }
+
+            // Try lines like: A .- (space separated)
+            var tokens = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length >= 2 && Regex.IsMatch(tokens[1], "^[.\\-/]+$"))
+            {
+                AddMappingIfValid(tokens[0], tokens[1]);
+            }
+        }
+
+        private void AddMappingIfValid(string key, string code)
+        {
+            if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(code))
+                return;
+            var ch = key.Trim();
+            if (ch.Length == 1)
+            {
+                var c = char.ToUpperInvariant(ch[0]);
+                // avoid duplicates: check existing list
+                foreach (var item in _morseList)
+                {
+                    if (item.Letter == c)
+                        return;
+                }
+                _morseList.Add(new MorseCode { Letter = c, Code = code.Trim() });
+            }
+        }
+
+        private string FindCode(char ch)
+        {
+            for (int i = 0; i < _morseList.Count; i++)
+            {
+                if (_morseList[i].Letter == ch)
+                    return _morseList[i].Code;
+            }
+            return null;
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            listBox1.BeginUpdate();
+            listBox1.Items.Clear();
+            textBox2.Clear();
+
+            var input = textBox1.Text ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                MessageBox.Show("請輸入文字後按轉換。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            input = input.ToUpper();
+
+            var full = new List<string>();
+            foreach (var ch in input)
+            {
+                if (char.IsWhiteSpace(ch))
+                {
+                    full.Add("/");
+                    listBox1.Items.Add("空白   /");
+                    continue;
+                }
+                var code = FindCode(ch);
+                if (code != null)
+                {
+                    full.Add(code);
+                    listBox1.Items.Add($"{ch}   {code}");
+                }
+                else
+                {
+                    // 未定義字元：忽略（不顯示、不轉換）
+                    continue;
+                }
+            }
+
+            textBox2.Text = string.Join(' ', full);
+            listBox1.EndUpdate();
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            textBox1.Clear();
+            textBox2.Clear();
+            listBox1.Items.Clear();
+        }
+
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void textBox1_TextChanged_1(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label3_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void textBox2_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+    }
+}
